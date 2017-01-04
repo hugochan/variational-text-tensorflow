@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 
 from base import Model
+from utils import *
 
 try:
   linear = tf.nn.rnn_cell.linear
@@ -34,7 +35,7 @@ class NVDM(Model):
     self.decay_rate = decay_rate
     self.decay_step = decay_step
     self.checkpoint_dir = checkpoint_dir
-    self.step = tf.Variable(0, trainable=False)  
+    self.step = tf.Variable(0, trainable=False)
     self.lr = tf.train.exponential_decay(
         learning_rate, self.step, 10000, decay_rate, staircase=True, name="lr")
 
@@ -99,10 +100,14 @@ class NVDM(Model):
 
       self.h = tf.add(self.mu, tf.mul(self.sigma, self.eps))
 
-      _ = tf.histogram_summary("mu", self.mu)
-      _ = tf.histogram_summary("sigma", self.sigma)
-      _ = tf.histogram_summary("h", self.h)
-      _ = tf.histogram_summary("mu + sigma", self.mu + self.sigma)
+      try:
+        _ = tf.summary.histogram("mu", self.mu)
+        _ = tf.summary.histogram("sigma", self.sigma)
+        _ = tf.summary.histogram("h", self.h)
+        _ = tf.summary.histogram("mu + sigma", self.mu + self.sigma)
+      except Exception as e:
+        print e
+        import pdb;pdb.set_trace()
 
   def build_generator(self):
     """Inference Network. p(X|h)"""
@@ -139,10 +144,13 @@ class NVDM(Model):
                                                               self.e_loss: e_loss,
                                                               self.x_idx: x_idx})
       """
-
+      # import pdb;pdb.set_trace()
       _, loss, mu, sigma, h, summary_str = self.sess.run(
           [self.optim, self.loss, self.mu, self.sigma, self.h, merged_sum],
           feed_dict={self.x: x, self.x_idx: x_idx})
+
+      if np.any(np.isnan(sigma)):
+        import pdb;pdb.set_trace()
 
       if step % 2 == 0:
         writer.add_summary(summary_str, step)
@@ -188,3 +196,20 @@ class NVDM(Model):
       p *= cur_p
 
       print(" [*] perp : %8.f" % -np.log(p))
+
+  def predict(self, file_path):
+    docs = load_json(file_path)
+    doc_codes = {}
+    for key, text in docs.iteritems():
+      if text == []:
+        continue
+      try:
+        x, _ = self.reader.get(text)
+      except Exception as e:
+        print(e)
+        return
+      code = self.sess.run(self.mu, feed_dict={self.x: x})
+      doc_codes[key] = code[0].tolist()
+
+    return doc_codes
+

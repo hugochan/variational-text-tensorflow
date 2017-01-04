@@ -11,18 +11,39 @@ EOS_TOKEN = "_eos_"
 
 class TextReader(object):
   def __init__(self, data_path):
-    train_path = os.path.join(data_path, "train.txt")
-    valid_path = os.path.join(data_path, "valid.txt")
-    test_path = os.path.join(data_path, "test.txt")
-    vocab_path = os.path.join(data_path, "vocab.pkl")
+    train_path = os.path.join(data_path, "train.json")
+    valid_path = os.path.join(data_path, "valid.json")
+    # test_path = os.path.join(data_path, "test.json")
 
-    if os.path.exists(vocab_path):
-      self._load(vocab_path, train_path, valid_path, test_path)
-    else:
-      self._build_vocab(train_path, vocab_path)
-      self.train_data = self._file_to_data(train_path)
-      self.valid_data = self._file_to_data(valid_path)
-      self.test_data = self._file_to_data(test_path)
+    train_docs = load_json(train_path)
+    valid_docs = load_json(valid_path)
+    # test_docs = load_json(test_path)
+    self.vocab = load_json(os.path.join(data_path, "vocab.json"))
+    self.train_data = self._file2data(train_docs.values(), self.vocab, train_path)
+    self.valid_data = self._file2data(valid_docs.values(), self.vocab, valid_path)
+    # self.test_data = self._file2data(test_docs.values(), self.vocab, test_path)
+
+
+
+
+    # train_path = os.path.join(data_path, "train.txt")
+    # valid_path = os.path.join(data_path, "valid.txt")
+    # test_path = os.path.join(data_path, "test.txt")
+    # vocab_path = os.path.join(data_path, "vocab.pkl")
+
+    # self.vocab = load_pkl(vocab_path)
+    # self.train_data = self._file_to_data(train_path)
+    # self.valid_data = self._file_to_data(valid_path)
+    # self.test_data = self._file_to_data(test_path)
+
+
+    # if os.path.exists(vocab_path):
+    #   self._load(vocab_path, train_path, valid_path, test_path)
+    # else:
+    #   self._build_vocab(train_path, vocab_path)
+    #   self.train_data = self._file_to_data(train_path)
+    #   self.valid_data = self._file_to_data(valid_path)
+    #   self.test_data = self._file_to_data(test_path)
 
     self.idx2word = {v:k for k, v in self.vocab.items()}
     self.vocab_size = len(self.vocab)
@@ -40,17 +61,25 @@ class TextReader(object):
 
     save_pkl(vocab_path, self.vocab)
 
+  def _file2data(self, docs, vocab, file_path):
+    data = []
+    for text in docs:
+      data.append(np.array(map(self.vocab.get, text)))
+
+    # save_npy(file_path + ".npy", data)
+    return data
+
   def _file_to_data(self, file_path):
     texts = self._read_text(file_path).split(EOS_TOKEN)
     data = []
     for text in texts:
       data.append(np.array(map(self.vocab.get, text.split())))
 
-    save_npy(file_path + ".npy", data)
+    # save_npy(file_path + ".npy", data)
     return data
 
   def _load(self, vocab_path, train_path, valid_path, test_path):
-    self.vocab = load_pkl(vocab_path)
+    self.vocab = load_json(vocab_path)
 
     self.train_data = load_npy(train_path + ".npy")
     self.valid_data = load_npy(valid_path + ".npy")
@@ -83,7 +112,8 @@ class TextReader(object):
       text = TreebankWordTokenizer().tokenize(text)
 
     try:
-      data = np.array(map(self.vocab.get, text))
+      data = np.array([self.vocab[x] for x in text if x in self.vocab])
+      # data = np.array(map(self.vocab.get, text))
       return self.onehot(data), data
     except:
       unknowns = []

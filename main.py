@@ -1,8 +1,9 @@
 import os
+import json
 import numpy as np
 import tensorflow as tf
 
-from utils import pp
+from utils import *
 from models import NVDM, NASM
 from reader import TextReader
 
@@ -17,12 +18,15 @@ flags.DEFINE_string("dataset", "ptb", "The name of dataset [ptb]")
 flags.DEFINE_string("model", "nvdm", "The name of model [nvdm, nasm]")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoints]")
 flags.DEFINE_boolean("forward_only", False, "False for training, True for testing [False]")
+flags.DEFINE_string("test_file", "test.txt", "test file")
+flags.DEFINE_string("out", "doc_codes.txt", "output file")
 FLAGS = flags.FLAGS
 
 MODELS = {
   'nvdm': NVDM,
   'nasm': NASM,
 }
+
 
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
@@ -39,12 +43,15 @@ def main(_):
 
     if FLAGS.forward_only:
       model.load(FLAGS.checkpoint_dir)
+      doc_codes = model.predict(FLAGS.test_file)
+      dump_json(doc_codes, FLAGS.out)
     else:
       model.train(FLAGS)
 
-    while True:
-      text = raw_input(" [*] Enter text to test: ")
-      model.sample(5, text)
+    # while True:
+    #   text = raw_input(" [*] Enter text to test: ")
+    #   model.sample(5, text)
+
 
 if __name__ == '__main__':
   tf.app.run()
